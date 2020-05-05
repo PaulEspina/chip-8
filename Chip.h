@@ -13,6 +13,9 @@ public:
 	bool Readrom(const char *path);
 	void Init();
 	void Cycle();
+	void KeyPressed(int key);
+	void KeyReleased(int key);
+	int CheckIfKeyIsPressed();
 private:
 	word Fetch();
 	word Fetch();
@@ -52,8 +55,9 @@ private:
 	void OpFX55(word instruction);
 	void OpFX65(word instruction);
 	byte memory[0xfff];
-	byte registers[16];
+	byte registers[0xf];
 	byte graphics[64][32];
+	bool keys[0xf];
 	word address;
 	word pc;
 	std::vector<word> stack;
