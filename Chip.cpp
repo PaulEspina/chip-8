@@ -40,10 +40,22 @@ void Chip::Init()
 	memset(keys, 0, sizeof(keys));
 	delay = 0;
 	sound = 0;
+	for(int i = 0; i < sizeof(font) / sizeof(font[0]); i++)
+	{
+		memory[i + 0x50] = font[i];
+	}
 }
 
 void Chip::Cycle()
 {
+	if(delay > 0)
+	{
+		delay--;
+	}
+	if(sound > 0)
+	{
+		delay--;
+	}
 	unsigned short int instruction = Fetch();
 	Execute(instruction);
 }
@@ -469,19 +481,15 @@ void Chip::OpDXYN(unsigned short int instruction)
 		int data = memory[address + i];
 		for(int j = 0; j < 8; j++)
 		{
-			if(data & (1 << (7 - j)))
+			if((data & (0x80 >> j)) != 0)
 			{
 				int xcoord = x + j;
 				int ycoord = y + i;
-				if(graphics[ycoord][xcoord] == 0)
+				if(graphics[ycoord][xcoord] == 0xff)
 				{
-					graphics[ycoord][xcoord] = 0xff;
 					registers[0xf] = 1;
 				}
-				else
-				{
-					graphics[ycoord][xcoord] = 0;
-				}
+				graphics[ycoord][xcoord] ^= 0xff;
 			}
 		}
 	}

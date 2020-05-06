@@ -41,14 +41,6 @@ int main()
 		if((time + interval) < current)
 		{
 			Update(window, event);
-			if(chip.delay > 0)
-			{
-				chip.delay--;
-			}
-			if(chip.sound > 0)
-			{
-				chip.sound--;
-			}
 			for(int i = 0; i < frames; i++)
 			{
 				chip.Cycle();
@@ -139,6 +131,73 @@ void Tick(sf::RenderWindow &window, sf::Event &event)
 				chip.KeyPressed(15);
 			}
 		}
+		if(event.type == sf::Event::KeyReleased)
+		{
+			if(event.key.code == sf::Keyboard::W)
+			{
+				chip.KeyReleased(8);
+			}
+			if(event.key.code == sf::Keyboard::A)
+			{
+				chip.KeyReleased(4);
+			}
+			if(event.key.code == sf::Keyboard::S)
+			{
+				chip.KeyReleased(6);
+			}
+			if(event.key.code == sf::Keyboard::D)
+			{
+				chip.KeyReleased(2);
+			}
+			if(event.key.code == sf::Keyboard::R)
+			{
+				chip.KeyReleased(0);
+			}
+			if(event.key.code == sf::Keyboard::T)
+			{
+				chip.KeyReleased(1);
+			}
+			if(event.key.code == sf::Keyboard::Y)
+			{
+				chip.KeyReleased(3);
+			}
+			if(event.key.code == sf::Keyboard::U)
+			{
+				chip.KeyReleased(5);
+			}
+			if(event.key.code == sf::Keyboard::F)
+			{
+				chip.KeyReleased(7);
+			}
+			if(event.key.code == sf::Keyboard::G)
+			{
+				chip.KeyReleased(9);
+			}
+			if(event.key.code == sf::Keyboard::H)
+			{
+				chip.KeyReleased(10);
+			}
+			if(event.key.code == sf::Keyboard::J)
+			{
+				chip.KeyReleased(11);
+			}
+			if(event.key.code == sf::Keyboard::V)
+			{
+				chip.KeyReleased(12);
+			}
+			if(event.key.code == sf::Keyboard::B)
+			{
+				chip.KeyReleased(13);
+			}
+			if(event.key.code == sf::Keyboard::N)
+			{
+				chip.KeyReleased(14);
+			}
+			if(event.key.code == sf::Keyboard::M)
+			{
+				chip.KeyReleased(15);
+			}
+		}
 	}
 }
 
@@ -151,7 +210,6 @@ void Update(sf::RenderWindow &window, sf::Event &event)
 			pixels[j][i].setFillColor(sf::Color(255, 255, 255, chip.graphics[j][i]));
 		}
 	}
-	//std::cout << chip.pc << std::endl;
 }
 
 void Render(sf::RenderWindow &window, sf::Event &event)
@@ -182,11 +240,11 @@ void Debug()
 	{
 		for(unsigned int i = 0; i <= 0xf; i++)
 		{
-			std::cout << "REG: V" << std::hex << i << std::dec << ":  " << std::hex << (int) chip.registers[i] << std::dec << std::endl;
+			std::cout << "REG: V" << std::hex << i << std::dec << ": 0x" << std::hex << (int) chip.registers[i] << std::dec << std::endl;
 		}
 		std::cout << std::endl;
-		std::cout << "PC: " << std::hex << (int) chip.pc << std::dec << std::endl;
-		std::cout << "Delay: " << std::hex << (int) chip.delay << std::endl;
+		std::cout << "PC: 0x" << std::hex << (int) chip.pc << std::dec << std::endl;
+		std::cout << "Delay: 0x" << std::hex << (int) chip.delay << std::endl;
 		for(unsigned int i = 0; i <= 0xf; i++)
 		{
 			Goto(20, i);
