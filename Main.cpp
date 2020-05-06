@@ -1,18 +1,24 @@
 #include "Chip.h"
 #include <iostream>
 #include <SFML/Graphics.hpp>
+#include <thread>
+#include <Windows.h>
+#include <iomanip>
 
 const unsigned int SC_WIDTH = 640, SC_HEIGHT = 320;
 const unsigned int scale = 10;
-Chip chip("pong.ch8");
+Chip chip("space.ch8");
 sf::RectangleShape pixels[32][64];
+bool close = false;
 
 void Tick(sf::RenderWindow &window, sf::Event &event);
 void Update(sf::RenderWindow &window, sf::Event &event);
 void Render(sf::RenderWindow &window, sf::Event &event);
+void Debug();
 
 int main()
 {
+	std::thread debug(Debug);
 	sf::RenderWindow window(sf::VideoMode(SC_WIDTH, SC_HEIGHT), "CHIP-8");
 	sf::Event event;
 	for(unsigned int i = 0; i < 64; i++)
@@ -26,7 +32,7 @@ int main()
 	}
 	sf::Clock clock;
 	float interval = 1000 / 60;
-	int frames = 400 / 60;
+	int frames = 800 / 60;
 	unsigned int time = clock.getElapsedTime().asMilliseconds();
 	while(window.isOpen())
 	{
@@ -48,11 +54,12 @@ int main()
 				chip.Cycle();
 			}
 			time = current;
-			window.clear();
-			Render(window, event);
-			window.display();
 		}
+		window.clear();
+		Render(window, event);
+		window.display();
 	}
+	debug.join();
 }
 
 void Tick(sf::RenderWindow &window, sf::Event &event)
@@ -63,6 +70,7 @@ void Tick(sf::RenderWindow &window, sf::Event &event)
 		if(event.type == sf::Event::Closed)
 		{
 			window.close();
+			close = true;
 		}
 		if(event.type == sf::Event::KeyPressed)
 		{
@@ -143,7 +151,7 @@ void Update(sf::RenderWindow &window, sf::Event &event)
 			pixels[j][i].setFillColor(sf::Color(255, 255, 255, chip.graphics[j][i]));
 		}
 	}
-	std::cout << chip.pc << std::endl;
+	//std::cout << chip.pc << std::endl;
 }
 
 void Render(sf::RenderWindow &window, sf::Event &event)
@@ -154,5 +162,36 @@ void Render(sf::RenderWindow &window, sf::Event &event)
 		{
 			window.draw(pixels[j][i]);
 		}
+	}
+}
+
+void Goto(short x, short y)
+{
+	COORD pos = {x, y};
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+}
+
+void Debug()
+{
+	HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_CURSOR_INFO cursor_info;
+	GetConsoleCursorInfo(console, &cursor_info);
+	cursor_info.bVisible = false;
+	SetConsoleCursorInfo(console, &cursor_info);
+	while(!close)
+	{
+		for(unsigned int i = 0; i <= 0xf; i++)
+		{
+			std::cout << "REG: V" << std::hex << i << std::dec << ":  " << std::hex << (int) chip.registers[i] << std::dec << std::endl;
+		}
+		std::cout << std::endl;
+		std::cout << "PC: " << std::hex << (int) chip.pc << std::dec << std::endl;
+		std::cout << "Delay: " << std::hex << (int) chip.delay << std::endl;
+		for(unsigned int i = 0; i <= 0xf; i++)
+		{
+			Goto(20, i);
+			std::cout << "Key " << i << ": " << chip.keys[i] << std::endl;
+		}
+		system("cls");
 	}
 }

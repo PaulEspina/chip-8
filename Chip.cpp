@@ -62,7 +62,7 @@ int Chip::CheckIfKeyIsPressed()
 {
 	for(int i = 0; i < 16; i++)
 	{
-		if(keys[i] != 0)
+		if(keys[i])
 			return i;
 	}
 	return -1;
@@ -300,7 +300,7 @@ void Chip::Op7XNN(unsigned short int instruction)
 	int x = instruction & 0x0f00;
 	x >>= 8;
 	int nn = instruction & 0x00ff;
-	registers[x] += nn;
+	registers[x] = registers[x] + nn;
 }
 
 // Sets VX to the value of VY
@@ -464,10 +464,10 @@ void Chip::OpDXYN(unsigned short int instruction)
 	int x = registers[regx];
 	int y = registers[regy];
 	registers[0xf] = 0;
-	for(unsigned int i = 0; i < n; i++)
+	for(int i = 0; i < n; i++)
 	{
 		int data = memory[address + i];
-		for(unsigned int j = 0; j < 8; j++)
+		for(int j = 0; j < 8; j++)
 		{
 			if(data & (1 << (7 - j)))
 			{
@@ -493,7 +493,7 @@ void Chip::OpEX9E(unsigned short int instruction)
 	int x = instruction & 0x0f00;
 	x >>= 8;
 	int key = registers[x];
-	if(keys[key] == 1)
+	if(keys[key])
 	{
 		pc += 2;
 	}
@@ -542,6 +542,7 @@ void Chip::OpFX15(unsigned short int instruction)
 	delay = registers[x];
 }
 
+// Sets the sound timer to VX
 void Chip::OpFX18(unsigned short int instruction)
 {
 	int x = instruction & 0x0f00;
@@ -554,7 +555,16 @@ void Chip::OpFX1E(unsigned short int instruction)
 {
 	int x = instruction & 0x0F00;
 	x >>= 8;
-	address += registers[x];
+	unsigned short int nadd = address + registers[x];
+	if(nadd > 0xfff)
+	{
+		registers[0xf] = 1;
+	}
+	else
+	{
+		registers[0xf] = 0;
+	}
+	address = address + registers[x];
 }
 
 // Sets I to the location of the sprite for the character in VX
@@ -598,7 +608,7 @@ void Chip::OpFX55(unsigned short int instruction)
 		memory[address + i] = registers[i];
 	}
 
-	address = address + x + 1;
+	//address = address + x + 1;
 }
 
 /*
@@ -616,7 +626,7 @@ void Chip::OpFX65(unsigned short int instruction)
 		registers[i] = memory[address + i];
 	}
 
-	address = address + x + 1;
+	//address = address + x + 1;
 }
 
 
