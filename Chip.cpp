@@ -2,18 +2,34 @@
 
 Chip::Chip()
 {
+	srand((unsigned int) time(0));
 	Init();
 }
 
-Chip::Chip(const char *path)
-	: Chip()
+void Chip::Init()
 {
-	Readrom(path);
+	memset(graphics, 0, sizeof(graphics));
+	memset(memory, 0, sizeof(memory));
+	memset(registers, 0, sizeof(registers));
+	memset(keys, 0, sizeof(keys));
+	for(int i = 0; i < sizeof(fontset); i++)
+	{
+		memory[0x50 + i] = fontset[i];
+	}
+	sp = 0;
+	pc = (word)0x200;
+	delay = 0;
+	sound = 0;
 }
 
-void Chip::Readrom(const char *path)
+bool Chip::LoadRom(const char *path)
 {
+	rompath = path;
 	std::ifstream file(path, std::ifstream::binary | std::ifstream::in);
+	if(!file.is_open())
+	{
+		return false;
+	}
 	file.seekg(0, std::ios::end);
 	std::streamoff length = file.tellg();
 	file.seekg(0, std::ios::beg);
@@ -23,30 +39,16 @@ void Chip::Readrom(const char *path)
 	{
 		memory[mem] = (int) result[i];
 	}
+	return true;
 }
 
 void Chip::Restart()
 {
 	Init();
+	LoadRom(rompath.c_str());
 }
 
-void Chip::Init()
-{
-	srand((unsigned int) time(0));
-	address = 0;
-	pc = 0x200;
-	memset(registers, 0, sizeof(registers));
-	memset(memory, 0, sizeof(memory));
-	memset(keys, 0, sizeof(keys));
-	delay = 0;
-	sound = 0;
-	for(int i = 0; i < sizeof(font) / sizeof(font[0]); i++)
-	{
-		memory[i + 0x50] = font[i];
-	}
-}
-
-void Chip::Cycle()
+void Chip::Countdown()
 {
 	if(delay > 0)
 	{
@@ -54,10 +56,14 @@ void Chip::Cycle()
 	}
 	if(sound > 0)
 	{
-		delay--;
+		sound--;
 	}
-	unsigned short int instruction = Fetch();
-	Execute(instruction);
+}
+
+void Chip::Cycle()
+{
+	word opcode = Fetch();
+	Execute(opcode);
 }
 
 void Chip::KeyPressed(int key)
@@ -70,299 +76,301 @@ void Chip::KeyReleased(int key)
 	keys[key] = 0;
 }
 
-int Chip::CheckIfKeyIsPressed()
+const word Chip::GetPC()
+{
+	return pc;
+}
+
+int Chip::CheckForKeyPress()
 {
 	for(int i = 0; i < 16; i++)
 	{
 		if(keys[i])
+		{
 			return i;
+		}
 	}
 	return -1;
 }
 
-unsigned short int Chip::Fetch()
+word Chip::Fetch()
 {
-	unsigned short int next = memory[pc];
-	next <<= 8;
-	next |= memory[pc + 1];
+	word opcode = memory[pc];
+	opcode <<= 8;
+	opcode += memory[pc + 1];
 	pc += 2;
-	return next; 
+	return opcode;
 }
 
-void Chip::Execute(unsigned short int instruction)
+void Chip::Execute(word opcode)
 {
-	switch(instruction & 0xf000)
+	switch(opcode & 0xf000)
 	{
 	case 0x0000:
-		switch(instruction & 0x000f)
+		switch(opcode & 0x000f)
 		{
 		case 0x0000:
-			Op00E0(instruction);
+			Op00E0(opcode);
 			break;
-		case 0x0001:
-			Op00EE(instruction);
+		case 0x000e:
+			Op00EE(opcode);
 			break;
 		}
 		break;
 	case 0x1000:
-		Op1NNN(instruction);
+		Op1NNN(opcode);
 		break;
 	case 0x2000:
-		Op2NNN(instruction);
+		Op2NNN(opcode);
 		break;
 	case 0x3000:
-		Op3XNN(instruction);
+		Op3XNN(opcode);
 		break;
 	case 0x4000:
-		Op4XNN(instruction);
+		Op4XNN(opcode);
 		break;
 	case 0x5000:
-		Op5XY0(instruction);
+		Op5XY0(opcode);
 		break;
 	case 0x6000:
-		Op6XNN(instruction);
+		Op6XNN(opcode);
 		break;
 	case 0x7000:
-		Op7XNN(instruction);
+		Op7XNN(opcode);
 		break;
 	case 0x8000:
-		switch(instruction & 0x000f)
+		switch(opcode & 0x000f)
 		{
 		case 0x0000:
-			Op8XY0(instruction);
+			Op8XY0(opcode);
 			break;
 		case 0x0001:
-			Op8XY1(instruction);
+			Op8XY1(opcode);
 			break;
 		case 0x0002:
-			Op8XY2(instruction);
+			Op8XY2(opcode);
 			break;
 		case 0x0003:
-			Op8XY3(instruction);
+			Op8XY3(opcode);
 			break;
 		case 0x0004:
-			Op8XY4(instruction);
+			Op8XY4(opcode);
 			break;
 		case 0x0005:
-			Op8XY5(instruction);
+			Op8XY5(opcode);
 			break;
 		case 0x0006:
-			Op8XY6(instruction);
+			Op8XY6(opcode);
 			break;
 		case 0x0007:
-			Op8XY7(instruction);
+			Op8XY7(opcode);
 			break;
 		case 0x000e:
-			Op8XYE(instruction);
+			Op8XYE(opcode);
 			break;
 		}
 		break;
 	case 0x9000:
-		Op9XY0(instruction);
+		Op9XY0(opcode);
 		break;
 	case 0xa000:
-		OpANNN(instruction);
+		OpANNN(opcode);
 		break;
 	case 0xb000:
-		OpBNNN(instruction);
+		OpBNNN(opcode);
 		break;
 	case 0xc000:
-		OpCXNN(instruction);
+		OpCXNN(opcode);
 		break;
 	case 0xd000:
-		OpDXYN(instruction);
+		OpDXYN(opcode);
 		break;
 	case 0xe000:
-		switch(instruction & 0x000f)
+		switch(opcode & 0x000f)
 		{
 		case 0x000e:
-			OpEX9E(instruction);
+			OpEX9E(opcode);
 			break;
 		case 0x0001:
-			OpEXA1(instruction);
+			OpEXA1(opcode);
 			break;
 		}
 		break;
 	case 0xf000:
-		switch(instruction & 0x00f0)
+		switch(opcode & 0x00f0)
 		{
 		case 0x0000:
-			switch(instruction & 0x000f)
+			switch(opcode & 0x000f)
 			{
 			case 0x0007:
-				OpFX07(instruction);
+				OpFX07(opcode);
 				break;
 			case 0x000a:
-				OpFX0A(instruction);
+				OpFX0A(opcode);
 				break;
 			}
 			break;
 		case 0x0010:
-			switch(instruction & 0x000f)
+			switch(opcode & 0x000f)
 			{
 			case 0x0005:
-				OpFX15(instruction);
+				OpFX15(opcode);
 				break;
 			case 0x0008:
-				OpFX18(instruction);
+				OpFX18(opcode);
 				break;
 			case 0x000e:
-				OpFX1E(instruction);
+				OpFX1E(opcode);
 				break;
 			}
 			break;
 		case 0x0020:
-			OpFX29(instruction);
+			OpFX29(opcode);
 			break;
 		case 0x0030:
-			OpFX33(instruction);
+			OpFX33(opcode);
 			break;
 		case 0x0050:
-			OpFX55(instruction);
+			OpFX55(opcode);
 			break;
 		case 0x0060:
-			OpFX65(instruction);
+			OpFX65(opcode);
 			break;
 		}
 		break;
 	}
 }
 
-// Clears the screen
-void Chip::Op00E0(unsigned short int instruction)
+// Clears the screen.
+void Chip::Op00E0(word opcode)
 {
-	for(unsigned int i = 0; i < 64; i++)
-	{
-		for(unsigned int j = 0; j < 32; j++)
-		{
-			graphics[j][i] = 0;
-		}
-	}
+	memset(graphics, 0, sizeof(graphics));
 }
 
-// Retursn from a subroutine
-void Chip::Op00EE(unsigned short int instruction)
+// Returns from a subroutine.
+void Chip::Op00EE(word opcode)
 {
 	pc = stack.back();
 	stack.pop_back();
 }
 
-// Jumps to address NNN
-void Chip::Op1NNN(unsigned short int instruction)
+// Jumps to address at NNN.
+void Chip::Op1NNN(word opcode)
 {
-	pc = instruction & 0x0fff;
+	pc = opcode & 0x0fff;
 }
 
-// Calls subroutine at NNN
-void Chip::Op2NNN(unsigned short int instruction)
+// Calls subroutine NNN.
+void Chip::Op2NNN(word opcode)
 {
 	stack.push_back(pc);
-	pc = instruction & 0x0fff;
+	pc = opcode & 0x0fff;
 }
 
-// Skips the next instruction if VX equals NN
-void Chip::Op3XNN(unsigned short int instruction)
+// Skips the next instruction if VX == NN.
+void Chip::Op3XNN(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int nn = instruction & 0x00ff;
-	if(registers[x] == nn)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int nn = opcode & 0x00ff;
+	if(registers[regx] == nn)
 	{
 		pc += 2;
 	}
 }
 
-// Skips the next instruction if VX not equal NN
-void Chip::Op4XNN(unsigned short int instruction)
+// Skips the next instruction if VX != NN.
+void Chip::Op4XNN(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int nn = instruction & 0x00ff;
-	if(registers[x] != nn)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int nn = opcode & 0x00ff;
+	if(registers[regx] != nn)
 	{
 		pc += 2;
 	}
 }
 
-// Skips the next insutrction if VX equal VY
-void Chip::Op5XY0(unsigned short int instruction)
+// Skips the next instrution if VX == VY.
+void Chip::Op5XY0(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	if(registers[x] == registers[y])
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	if(registers[regx] == registers[regy])
 	{
 		pc += 2;
 	}
 }
 
-// Sets VX to NN
-void Chip::Op6XNN(unsigned short int instruction)
+// Sets register VX to NN.
+void Chip::Op6XNN(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int nn = instruction & 0x00ff;
-	registers[x] = nn;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int nn = opcode & 0x00ff;
+	registers[regx] = nn;
 }
 
-// Adds NN to VX
-void Chip::Op7XNN(unsigned short int instruction)
+// Adds NN to VX.
+void Chip::Op7XNN(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int nn = instruction & 0x00ff;
-	registers[x] = registers[x] + nn;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int nn = opcode & 0x00ff;
+	registers[regx] += nn;
 }
 
-// Sets VX to the value of VY
-void Chip::Op8XY0(unsigned short int instruction)
+// Sets VX to the value of VY.
+void Chip::Op8XY0(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	registers[x] = registers[y];
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	registers[regx] = registers[regy];
 }
 
-// Sets VX to VX or VY
-void Chip::Op8XY1(unsigned short int instruction)
+// Sets VX to VX or VY.
+void Chip::Op8XY1(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	registers[x] = registers[x] | registers[y];
-}
- // Sets VX to VX and VY
-void Chip::Op8XY2(unsigned short int instruction)
-{
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	registers[x] = registers[x] & registers[y];
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	registers[regx] |= registers[regy];
 }
 
-// Sets VX to VX xor VY
-void Chip::Op8XY3(unsigned short int instruction)
+// Set VX to VX and VY.
+void Chip::Op8XY2(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	registers[x] = registers[x] ^ registers[y];
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	registers[regx] &= registers[regy];
 }
 
-// Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't
-void Chip::Op8XY4(unsigned short int instruction)
+// Sets VX to VX xor VY.
+void Chip::Op8XY3(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	unsigned short int temp = registers[x] + registers[y];
-	if(temp > 255)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	registers[regx] ^= registers[regy];
+}
+
+// Adds VY to VX. VF is set to 1 when there's carry otherwise 0.
+void Chip::Op8XY4(word opcode)
+{
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	int value = registers[regx] + registers[regy];
+	if(value > 0xff)
 	{
 		registers[0xf] = 1;
 	}
@@ -370,16 +378,17 @@ void Chip::Op8XY4(unsigned short int instruction)
 	{
 		registers[0xf] = 0;
 	}
-	registers[x] = registers[x] + registers[y];
+	registers[regx] = value;
 }
- // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-void Chip::Op8XY5(unsigned short int instruction)
+
+// VY is subtracted from VX. VF is set to 0 when there's a borrow otherwise 1.
+void Chip::Op8XY5(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	if(registers[x] < registers[y])
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	if(registers[regx] < registers[regy])
 	{
 		registers[0xf] = 0;
 	}
@@ -387,26 +396,27 @@ void Chip::Op8XY5(unsigned short int instruction)
 	{
 		registers[0xf] = 1;
 	}
-	registers[x] = registers[x] - registers[y];
+	registers[regx] -= registers[regy];
+
 }
 
-// Stores the least significant bit of VX in VF and then shifts VX to the right by 1
-void Chip::Op8XY6(unsigned short int instruction)
+// Stores the least significant bit of VX in VF and then shifts VX to the right by 1.
+void Chip::Op8XY6(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	registers[0xf] = registers[x] & 0x1;
-	registers[x] >>= 1;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	registers[0xf] = registers[regx] & 0x1;
+	registers[regx] >>= 1;
 }
 
-// 	Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't
-void Chip::Op8XY7(unsigned short int instruction)
+// Sets VX to VY minus VX. VF is set to 0 when there's a borrow otherwise 1.
+void Chip::Op8XY7(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	if(registers[y] < registers[x])
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	if(registers[regy] < registers[regx])
 	{
 		registers[0xf] = 0;
 	}
@@ -414,157 +424,151 @@ void Chip::Op8XY7(unsigned short int instruction)
 	{
 		registers[0xf] = 1;
 	}
-	registers[x] = registers[y] - registers[x];
+	registers[regx] = registers[regy] - registers[regx];
 }
 
-// Stores the most significant bit of VX in VF and then shifts VX to the left by 1
-void Chip::Op8XYE(unsigned short int instruction)
+// Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
+void Chip::Op8XYE(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	registers[0xf] = registers[x] >> 7;
-	registers[x] <<= 1;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	registers[0xf] = (registers[regx] & 0x80) >> 7;
+	registers[regx] <<= 1;
 }
 
-// Skips the next instruction if VX doesn't equal VY
-void Chip::Op9XY0(unsigned short int instruction)
+// Skips the next instruction if VX != VY.
+void Chip::Op9XY0(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int y = instruction & 0x00f0;
-	y >>= 4;
-	if(registers[x] != registers[y])
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int regy = opcode & 0x00f0;
+	regy >>= 4;
+	if(registers[regx] != registers[regy])
 	{
 		pc += 2;
 	}
 }
 
-// Sets I to the address NNN
-void Chip::OpANNN(unsigned short int instruction)
+// Sets sp to address NNN;
+void Chip::OpANNN(word opcode)
 {
-	address = instruction & 0x0fff;
+	int nnn = opcode & 0x0fff;
+	sp = nnn;
 }
 
 // Jumps to the address NNN plus V0
-void Chip::OpBNNN(unsigned short int instruction)
+void Chip::OpBNNN(word opcode)
 {
-	int nnn = instruction & 0x0fff;
+	int nnn = opcode & 0x0fff;
 	pc = registers[0] + nnn;
 }
 
-// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN
-void Chip::OpCXNN(unsigned short int instruction)
+// Sets VX to the result of a bitwise & operation on a random number and NN.
+void Chip::OpCXNN(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int nn = instruction & 0x00ff;
-	registers[x] = rand() & nn;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int nn = opcode & 0x00ff;
+	int random = rand() % 256;
+	registers[regx] = random & nn;
 }
 
-/*
-Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels. 
-Each row of 8 pixels is read as bit-coded starting from memory location I; I value doesn’t change after the execution of this instruction. 
-As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that doesn’t happen
-*/
-void Chip::OpDXYN(unsigned short int instruction)
+// Display
+void Chip::OpDXYN(word opcode)
 {
-	int regx = instruction & 0x0f00;
+	int regx = opcode & 0x0f00;
 	regx >>= 8;
-	int regy = instruction & 0x00f0;
+	int regy = opcode & 0x00f0;
 	regy >>= 4;
-	int n = instruction & 0x000f;
+	int height = opcode & 0x000f;
 	int x = registers[regx];
 	int y = registers[regy];
 	registers[0xf] = 0;
-	for(int i = 0; i < n; i++)
+	for(int row = 0; row < height; row++)
 	{
-		int data = memory[address + i];
-		for(int j = 0; j < 8; j++)
+		int data = memory[sp + row];
+		for(int col = 0; col < 8; col++)
 		{
-			if((data & (0x80 >> j)) != 0)
+			if((data & (0x80 >> col)) != 0)
 			{
-				int xcoord = x + j;
-				int ycoord = y + i;
-				if(graphics[ycoord][xcoord] == 0xff)
+				if(graphics[y + row][x + col] == 0xff)
 				{
 					registers[0xf] = 1;
 				}
-				graphics[ycoord][xcoord] ^= 0xff;
+				graphics[y + row][x + col] ^= 0xff;
 			}
 		}
 	}
 }
 
- // Skips the next instruction if the key stored in VX is pressed.
-void Chip::OpEX9E(unsigned short int instruction)
+// Skips the next instruction if the key stored in VX is pressed.
+void Chip::OpEX9E(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int key = registers[x];
-	if(keys[key])
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	if(keys[registers[regx]])
 	{
 		pc += 2;
 	}
 }
 
-// Skips the next instruction if the key stored in VX isn't pressed.
-void Chip::OpEXA1(unsigned short int instruction)
+// Skips the next instruction if the key stored in VX is not pressed.
+void Chip::OpEXA1(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int key = registers[x];
-	if(!keys[key])
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	if(!keys[registers[regx]])
 	{
 		pc += 2;
 	}
 }
+
 // Sets VX to the value of the delay timer.
-void Chip::OpFX07(unsigned short int instruction)
+void Chip::OpFX07(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	registers[x] = delay;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	registers[regx] = delay;
 }
 
-// A key press is awaited, and then stored in VX
-void Chip::OpFX0A(unsigned short int instruction)
+// Waits for a key press then store that key in VX
+void Chip::OpFX0A(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int key = CheckIfKeyIsPressed();
-	if(key == -1)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int key = CheckForKeyPress();
+	if(key != -1)
 	{
-		pc -= 2;
+		registers[regx] = key;
 	}
 	else
 	{
-		registers[x] = key;
+		pc -= 2;
 	}
 }
 
-// Sets the delay timer to VX
-void Chip::OpFX15(unsigned short int instruction)
+// Sets the delay timer to VX.
+void Chip::OpFX15(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	delay = registers[x];
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	delay = registers[regx];
 }
 
-// Sets the sound timer to VX
-void Chip::OpFX18(unsigned short int instruction)
+// Sets the sound timer to VX.
+void Chip::OpFX18(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	sound = registers[x];
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	sound = registers[regx];
 }
 
-// Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to 0 when there isn't.
-void Chip::OpFX1E(unsigned short int instruction)
+// Adds VX to sp. VF is set to 1 when sp + vx > 0xfff, otherwise 0.
+void Chip::OpFX1E(word opcode)
 {
-	int x = instruction & 0x0F00;
-	x >>= 8;
-	unsigned short int nadd = address + registers[x];
-	if(nadd > 0xfff)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	if(sp + registers[regx] > 0x0fff)
 	{
 		registers[0xf] = 1;
 	}
@@ -572,69 +576,49 @@ void Chip::OpFX1E(unsigned short int instruction)
 	{
 		registers[0xf] = 0;
 	}
-	address = address + registers[x];
+	sp += registers[regx];
 }
 
-// Sets I to the location of the sprite for the character in VX
-void Chip::OpFX29(unsigned short int instruction)
+// Sets sp to the location of the sprite for the character in VX.
+void Chip::OpFX29(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	address = registers[x] * 5;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	sp = 0x50 + (registers[regx] * 5);
 }
 
-/*
-Stores the binary-coded decimal representation of VX, 
-with the most significant of three digits at the address in I, 
-the middle digit at I plus 1, and the least significant digit at I plus 2.
-*/
-void Chip::OpFX33(unsigned short int instruction)
+// Hard to explain what this does lol.
+void Chip::OpFX33(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-	int value = registers[x];
-	int hundreds = value / 100;
-	int tens = (value / 10) % 10;
-	int units = value % 10;
-	memory[address] = hundreds;
-	memory[address + 1] = tens;
-	memory[address + 2] = units;
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	int dec = registers[regx];
+	int hundreds = dec / 100;
+	int tens = (dec / 10) % 10;
+	int ones = dec % 10;
+	memory[sp] = hundreds;
+	memory[sp + 1] = tens;
+	memory[sp + 2] = ones;
 }
 
-/*
-Stores V0 to VX (including VX) in memory starting at address I. 
-The offset from I is increased by 1 for each value written, 
-but I itself is left unmodified.
-*/
-void Chip::OpFX55(unsigned short int instruction)
+// Stores V0 to VX in memory starting at sp. sp is not modified.
+void Chip::OpFX55(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-
-	for(int i = 0; i <= x; i++)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	for(int i = 0; i <= regx; i++)
 	{
-		memory[address + i] = registers[i];
+		memory[sp + i] = registers[i];
 	}
-
-	//address = address + x + 1;
 }
 
-/*
-Fills V0 to VX (including VX) with values from memory starting at address I. 
-The offset from I is increased by 1 for each value written, 
-but I itself is left unmodified.
-*/
-void Chip::OpFX65(unsigned short int instruction)
+// Fills V0 to VX with values from memory starting at sp. sp is not modified.
+void Chip::OpFX65(word opcode)
 {
-	int x = instruction & 0x0f00;
-	x >>= 8;
-
-	for(int i = 0; i <= x; i++)
+	int regx = opcode & 0x0f00;
+	regx >>= 8;
+	for(int i = 0; i <= regx; i++)
 	{
-		registers[i] = memory[address + i];
+		registers[i] = memory[sp + i];
 	}
-
-	//address = address + x + 1;
 }
-
-
